@@ -1,0 +1,117 @@
+import os
+import re
+import json
+import webbrowser
+import wikipedia
+import pyjokes
+from datetime import datetime
+
+MEMORY_FILE = "memory.json"
+NOTES_FILE = "notes.txt"
+
+# ---------------- Memory Helpers ----------------
+def load_memory():
+    if not os.path.exists(MEMORY_FILE):
+        return {}
+    try:
+        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_memory(mem):
+    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(mem, f, indent=2, ensure_ascii=False)
+
+memory = load_memory()
+
+# ---------------- Core Assistant ----------------
+def handle(command: str):
+    u = command.lower().strip()
+
+    # Stop / Exit
+    if re.search(r"\b(stop|quit|exit|bye)\b", u):
+        print("Jarvis: Goodbye!")
+        return False
+
+    # Greeting
+    elif re.search(r"\b(hello|hey|hi)\b", u):
+        print("Jarvis: Hey! How can I help?")
+
+    # Time / Date
+    elif "time" in u or "date" in u or "day" in u:
+        now = datetime.now()
+        if "time" in u:
+            print("Jarvis:", now.strftime("It's %I:%M %p"))
+        elif "date" in u or "day" in u:
+            print("Jarvis:", now.strftime("Today is %A, %B %d, %Y"))
+
+    # Open Websites
+    elif u.startswith("open "):
+        target = u.replace("open ", "").strip()
+        mapping = {
+            "youtube": "https://www.youtube.com",
+            "google": "https://www.google.com",
+            "github": "https://github.com",
+            "gmail": "https://mail.google.com",
+            "stackoverflow": "https://stackoverflow.com",
+        }
+        url = mapping.get(target, f"https://www.google.com/search?q={target}")
+        webbrowser.open(url)
+        print(f"Jarvis: Opening {target}...")
+
+    # Web Search
+    elif u.startswith("search "):
+        q = u.replace("search ", "").strip()
+        url = f"https://www.google.com/search?q={q}"
+        webbrowser.open(url)
+        print(f"Jarvis: Searching for {q}...")
+
+    # Notes
+    elif u.startswith("note "):
+        text = u.replace("note ", "").strip()
+        with open(NOTES_FILE, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now().isoformat(timespec='seconds')}] {text}\n")
+        print("Jarvis: Noted.")
+
+    # Remember facts
+    elif u.startswith("remember "):
+        fact = u.replace("remember ", "").strip()
+        memory.setdefault("facts", []).append(fact)
+        save_memory(memory)
+        print("Jarvis: Okay, I'll remember that.")
+
+    # Recall facts
+    elif "what do you remember" in u or "recall" in u:
+        facts = memory.get("facts", [])
+        if facts:
+            print("Jarvis: I remember:", "; ".join(facts))
+        else:
+            print("Jarvis: I don’t have any memories yet.")
+
+    # Jokes
+    elif "joke" in u:
+        print("Jarvis:", pyjokes.get_joke())
+
+    # Wikipedia
+    elif u.startswith("who is") or u.startswith("what is") or "tell me about" in u:
+        query = u.replace("who is", "").replace("what is", "").replace("tell me about", "").strip()
+        try:
+            summary = wikipedia.summary(query, sentences=2)
+            print("Jarvis:", summary)
+        except:
+            print("Jarvis: Sorry, I couldn't fetch information.")
+
+    else:
+        print("Jarvis: Sorry, I didn't catch that.")
+
+    return True
+
+
+# ---------------- Main Loop ----------------
+if __name__ == "__main__":
+    print("Jarvis (text-only) is online. Type your commands. Type 'exit' to quit.")
+    while True:
+        command = input("You: ")
+        if not handle(command):
+            break
